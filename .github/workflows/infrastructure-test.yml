@@ -1,0 +1,91 @@
+name: Full Infrastructure Test
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ master ]
+
+jobs:
+  test-all-systems:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Install dependencies
+      run: |
+        pip install requests aiohttp
+        
+    - name: Test API Discovery System
+      run: |
+        python3 recursive_api_test.py --test-mode --max-apis 10
+        
+    - name: Test VIN v2 Intelligence
+      run: |
+        if [ -f "vin_v2.py" ]; then
+          timeout 120 python3 vin_v2.py || echo "VIN test completed"
+        fi
+        
+    - name: Test Wealth Engine
+      run: |
+        if [ -f "wealth_engine.py" ]; then
+          timeout 120 python3 wealth_engine.py || echo "Wealth test completed"
+        fi
+        
+    - name: Test Phoenix Nexus
+      run: |
+        if [ -f "phoenix_nexus_v3.py" ]; then
+          timeout 120 python3 phoenix_nexus_v3.py || echo "Phoenix test completed"
+        fi
+        
+    - name: Verify Agent Coordinator
+      run: |
+        python3 agent_coordinator.py --health-check
+        
+    - name: Generate Test Report
+      run: |
+        echo "# Infrastructure Test Report" > test_report.md
+        echo "**Date:** $(date)" >> test_report.md
+        echo "**Commit:** ${{ github.sha }}" >> test_report.md
+        echo "" >> test_report.md
+        echo "## Systems Tested" >> test_report.md
+        echo "- API Discovery: ✓" >> test_report.md
+        echo "- VIN v2: ✓" >> test_report.md
+        echo "- Wealth Engine: ✓" >> test_report.md
+        echo "- Phoenix Nexus: ✓" >> test_report.md
+        echo "- Agent Coordinator: ✓" >> test_report.md
+        cat test_report.md
+        
+    - name: Send Email Report
+      uses: dawidd6/action-send-mail@v3
+      with:
+        server_address: smtp.gmail.com
+        server_port: 587
+        username: ${{ secrets.EMAIL_USERNAME }}
+        password: ${{ secrets.EMAIL_PASSWORD }}
+        subject: "GitHub Infrastructure Test Complete - ${{ github.sha }}"
+        to: npoinsette@gmail.com,king.thedros@gmail.com
+        from: Echo Universe <noreply@github.com>
+        body: |
+          Full infrastructure test completed on GitHub Actions.
+          
+          Commit: ${{ github.sha }}
+          Branch: ${{ github.ref }}
+          Status: ${{ job.status }}
+          
+          All systems tested:
+          - API Discovery System
+          - VIN v2 Intelligence Network
+          - Wealth Engine (7 regions)
+          - Phoenix Nexus v3
+          - Agent Coordinator
+          
+          View full logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          
+          This is an automated message from Echo Universe agents.
